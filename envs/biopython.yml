@@ -1,0 +1,9 @@
+# mamba env create -f biopython.yml
+name: biopython
+channels:
+ - conda-forge
+ - bioconda
+ - defaults
+dependencies:
+ - conda-forge::biopython=1.83
+ - bioconda::pysam=0.22.0

@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+import argparse
+import gzip
+from Bio import AlignIO
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
+from Bio import SeqIO
+
+def parse_maf_to_fasta(maf_file, sample_order):
+    # Parse the MAF file
+    opener = gzip.open if maf_file.endswith('.gz') else open
+    with opener(maf_file, 'rt') as handle:  # Open the file using the appropriate opener
+        alignment = AlignIO.parse(handle, "maf")  # Pass the file handle to AlignIO.parse
+    
+        # Initialize dictionary to store sequences for each sample
+        sample_seqs = {sample: "" for sample in sample_order}
+        
+        # Iterate over alignment blocks
+        for block in alignment:
+            # Get maximum length among sequences in the block
+            max_length = max(len(str(seq.seq)) for seq in block)
+            
+            # Initialize dictionary to store sequences for samples in this block
+            block_seqs = {sample: "-" * max_length for sample in sample_order}
+            
+            # Iterate over sequences in the block
+            for seq in block:
+                sample = seq.id.split('.')[0]  # Extract sample name
+                seq_str = str(seq.seq)
+                # Update block sequences for the sample
+                if sample in sample_order:
+                    seq_str = seq_str.ljust(max_length, '-')  # Pad with gaps if necessary
+                    block_seqs[sample] = seq_str
+            
+            # Update sample sequences
+            for sample, seq in block_seqs.items():
+                sample_seqs[sample] += seq
+        
+        # Create SeqRecord objects for each sample
+        seq_records = [SeqRecord(Seq(seq), id=sample) for sample, seq in sample_seqs.items()]
+        
+        return seq_records
+
+def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Convert MAF alignment to multi-sample FASTA")
+    parser.add_argument('-m', '--maf', dest="maf_file", required=True, help="Input MAF file (can be gzipped)")
+    parser.add_argument('-f', '--fa', dest="fasta_file", required=True, help="Output FASTA file")
+    parser.add_argument('-s', '--sample-order', dest="sample_order", required=True, help="Sample order as a comma-separated list")
+    args = parser.parse_args()
+    
+    # Specify sample order
+    sample_order = args.sample_order.split(",")  # Convert comma-separated string to list
+    
+    # Parse MAF file and convert to multi-sample FASTA alignment
+    try:
+        # Parse MAF file and build individual sequences for each sample
+        sample_sequences = parse_maf_to_fasta(args.maf_file, sample_order)
+        
+        # Write SeqRecord objects to a multi-sequence FASTA file
+        with open(args.fasta_file, "w") as handle:
+            num_sequences = len(sample_sequences)
+            for i, seq_record in enumerate(sample_sequences):
+                # Write only the sample name to the header
+                handle.write(">" + seq_record.id.split('.')[0] + "\n")
+                handle.write(str(seq_record.seq))
+                if i < num_sequences - 1:
+                    handle.write("\n")
+    
+    except Exception as e:
+        raise e
+
+if __name__ == "__main__":
+    main()

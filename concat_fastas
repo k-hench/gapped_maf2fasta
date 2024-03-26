@@ -1,0 +1,112 @@
+#!/usr/bin/env python
+import argparse
+import gzip
+import sys
+from collections import defaultdict
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+
+# ANSI color escape codes
+COLOR_RED = "\033[91m"
+COLOR_ORANGE = "\033[93m"
+COLOR_PURPLE = "\033[95m"
+COLOR_RESET = "\033[0m"
+
+def concatenate_fastas(fasta_files, sample_order, keep_gaps_only=False):
+    # Initialize dictionary to store sequences for each sample
+    sample_seqs = {sample: "" for sample in sample_order}
+
+    # Store dropped IDs and sequences with only gaps
+    dropped_ids = []
+    gaps_sequences = []
+
+    # Iterate over input FASTA files
+    for fasta_file in fasta_files:
+        # Parse FASTA file
+        opener = gzip.open if fasta_file.endswith('.gz') else open
+        with opener(fasta_file, 'rt') as file:
+            for record in SeqIO.parse(file, "fasta"):
+                sample_name = record.id.split('.')[0]  # Extract sample name from header
+                # Check if sample name is in the specified sample order
+                if sample_name in sample_order:
+                    # Concatenate sequence to the existing sequence for the sample
+                    sample_seqs[sample_name] += str(record.seq)
+                else:
+                    dropped_ids.append(record.id)
+
+    # Create SeqRecord objects for each sample
+    seq_records = []
+    for sample_name, seq in sample_seqs.items():
+        if len(seq) > 0:  # Only keep sequences with actual content
+            seq_records.append(SeqRecord(Seq(seq), id=sample_name))
+        else:             # Drop empty sequences
+            dropped_ids.append(sample_name)
+
+        # Check if sequence contains only gaps
+        if set(seq) == {"-"}:
+            gaps_sequences.append(sample_name)
+
+    # message for dropped sequences
+    if dropped_ids:
+        dropped_ids_sorted = sorted(set(dropped_ids))
+        print(f"{COLOR_ORANGE}Warning:{COLOR_RESET} The following {COLOR_ORANGE}sample(s) were dropped{COLOR_RESET} from the output: [ " + ", ".join(dropped_ids_sorted) + " ]", file=sys.stderr)
+        print("(either because they are missing from --sample-order, or from the input fasta file(s))", file=sys.stderr)
+    
+    # message or failure for gaps-only sequences
+    if gaps_sequences:
+        gaps_sequences_sorted = sorted(set(gaps_sequences))
+        print(keep_gaps_only)
+        if not keep_gaps_only:  # Check if keep_gaps_only is False
+            print(f"{COLOR_RED}Error:{COLOR_RESET} The following {COLOR_RED}sequence(s) contain only gaps{COLOR_RESET}: [ {', '.join(gaps_sequences_sorted)} ]", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print(f"{COLOR_PURPLE}Info:{COLOR_RESET} The following {COLOR_PURPLE}sequence(s) contain only gaps{COLOR_RESET}: [ {', '.join(gaps_sequences_sorted)} ]", file=sys.stderr)
+    
+    return seq_records
+
+def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Concatenate sequences from multiple FASTA files")
+    parser.add_argument('fasta_files', nargs="+", help="Input FASTA files (can be gzipped)")
+    parser.add_argument('-s', '--sample-order', dest="sample_order", required=True, help="Sample order as a comma-separated list")
+    parser.add_argument('-o', '--output', dest="output_file", required=True, help="Output concatenated FASTA file")
+    parser.add_argument('-kg', '--keep-gaps-only', dest="keep_gaps_only", action="store_true", help="Drop sequences with only gaps")
+    args = parser.parse_args()
+
+    # Specify sample order
+    sample_order = args.sample_order.split(",")
+
+    # Concatenate FASTA files
+    try:
+        # Concatenate sequences from input FASTA files
+        concatenated_sequences = concatenate_fastas(args.fasta_files, sample_order, args.keep_gaps_only)
+
+        # Check if all sequences are of the same length
+        # Create a table of sequence lengths
+        length_dict = defaultdict(list)
+        for seq_record in concatenated_sequences:
+            length_dict[len(seq_record.seq)].append(seq_record.id)
+
+        # Fail if there is more than one sequence length in the results
+        if len(length_dict) > 1:
+                  length_report = "\n".join(f"# - {length} bp: [ {', '.join(ids)} ]" for length, ids in length_dict.items())
+                  raise ValueError(f"{COLOR_RED}Not all sequences are of the same length:{COLOR_RESET}\n" + length_report)
+
+        # Write SeqRecord objects to the output concatenated FASTA file
+        with open(args.output_file, "w") as handle:
+            for i, seq_record in enumerate(concatenated_sequences):
+                # Write only the sample name to the header
+                handle.write(">" + seq_record.id + "\n")
+                # Write sequence without trailing newline character
+                handle.write(str(seq_record.seq).rstrip())
+                # Add newline character unless it's the last sequence
+                if i != len(concatenated_sequences) - 1:
+                    handle.write("\n")
+
+    except ValueError as e:
+        print("Error:", e, file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
