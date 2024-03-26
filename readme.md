@@ -1,6 +1,6 @@
-# Conversion of `maf` (Multiple Alignment Format) to `fasta` files
+# Conversion of `maf` to `fasta` files
 
-The aim of these scripts is to able to merge the sequence alignments of a maf file in a consistent and predictable way.
+The aim of these scripts is to able to merge the sequence alignments of a maf (Multiple Alignment Format) file in a consistent and predictable way.
 
 Required features are:
 - enforceable order of output sequences in the resulting fasta file (`maf2fasta`)
@@ -14,14 +14,13 @@ The desired output (potentially) concatenates at several places:
 
 ## Chaining both scripts (dropping gapps-only from fasta)
 
-
 The behavior with respect to gaps-only sequences can be toggled from an "ERROR" case, to an explicit "INFO" case (keeping gapps-only sequences) using the parameter `--keep-gaps-only`.
 
 Error-case:
 
 ```sh
 ./maf2fasta --maf tests/maf/test2.maf.gz --fa /dev/stdout -s A,C,B,D  | \
-  ./concat_fastas /dev/stdin  -s A,C,B,D -o /dev/stdout
+  ./concat_fastas /dev/stdin  -s A,C,B,D -o /dev/stdout
 ```
 
 ```
@@ -32,7 +31,7 @@ Info-case:
 
 ```sh
 ./maf2fasta --maf tests/maf/test2.maf.gz --fa /dev/stdout -s A,C,B,D  | \
-  ./concat_fastas /dev/stdin  -s A,C,B,D -o /dev/stdout --keep-gaps-only
+  ./concat_fastas /dev/stdin  -s A,C,B,D -o /dev/stdout --keep-gaps-only
 ```
 
 ```
