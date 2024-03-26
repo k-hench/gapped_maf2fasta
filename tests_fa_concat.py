@@ -29,6 +29,12 @@ class TestConcatenateFastas(unittest.TestCase):
         # Compare the output with the target file
         self.assertTrue(filecmp.cmp(test_results_dir +"check_mixed.fa", test_fa_dir + "target.fa"))
 
+    def test_mixed_seq_ordes(self):
+        # Run the script with plain text input files
+        subprocess.run(["./concat_fastas", test_fa_dir + "test1_sorted.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + "check_mixed_order.fa"], stderr=subprocess.DEVNULL)
+        # Compare the output with the target file
+        self.assertTrue(filecmp.cmp(test_results_dir + "check_mixed_order.fa", test_fa_dir + "target.fa"))
+
     def test_split_text_input(self):
         # Run the script with plain text input files
         subprocess.run(["./concat_fastas", test_fa_dir + "test1_split1.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + "check_split1.fa"], stderr=subprocess.DEVNULL)

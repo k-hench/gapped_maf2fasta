@@ -56,7 +56,6 @@ def concatenate_fastas(fasta_files, sample_order, keep_gaps_only=False):
     # message or failure for gaps-only sequences
     if gaps_sequences:
         gaps_sequences_sorted = sorted(set(gaps_sequences))
-        print(keep_gaps_only)
         if not keep_gaps_only:  # Check if keep_gaps_only is False
             print(f"{COLOR_RED}Error:{COLOR_RESET} The following {COLOR_RED}sequence(s) contain only gaps{COLOR_RESET}: [ {', '.join(gaps_sequences_sorted)} ]", file=sys.stderr)
             sys.exit(1)
