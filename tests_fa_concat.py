@@ -12,40 +12,53 @@ test_results_dir = "tests/results/"
 
 class TestConcatenateFastas(unittest.TestCase):
     def test_plain_text_input(self):
+        test_out = "check_plain.fa"
         # Run the script with plain text input files
-        subprocess.run(["./concat_fastas", test_fa_dir + "test1.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + "check_plain.fa"], stderr=subprocess.DEVNULL)
+        subprocess.run(["./concat_fastas", test_fa_dir + "test1.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + test_out], stderr=subprocess.DEVNULL)
         # Compare the output with the target file
-        self.assertTrue(filecmp.cmp(test_results_dir + "check_plain.fa", test_fa_dir + "target.fa"))
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "target.fa"))
+
+    def test_sample_order_from_file(self):
+        test_out = "check_from_list.fa"
+        # Run the script with plain text input files
+        subprocess.run(["./concat_fastas", test_fa_dir + "test1.fa", test_fa_dir + "test2.fa", "-l", "tests/samples.txt", "-o", test_results_dir + test_out], stderr=subprocess.DEVNULL)
+        # Compare the output with the target file
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "target_ACB.fa"))
 
     def test_gzipped_input(self):
+        test_out = "check_gz.fa"
         # Run the script with gzipped input files
-        subprocess.run(["./concat_fastas", test_fa_dir + "test1.fa.gz", test_fa_dir + "test2.fa.gz", "-s", "A,B,C", "-o", test_results_dir + "check_gz.fa"], stderr=subprocess.DEVNULL)
+        subprocess.run(["./concat_fastas", test_fa_dir + "test1.fa.gz", test_fa_dir + "test2.fa.gz", "-s", "A,B,C", "-o", test_results_dir + test_out], stderr=subprocess.DEVNULL)
         # Compare the output with the target file
-        self.assertTrue(filecmp.cmp(test_results_dir + "check_gz.fa", test_fa_dir + "target.fa"))
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "target.fa"))
 
     def test_mixed_input(self):
+        test_out = "check_mixed.fa"
         # Run the script with mixed input files
-        subprocess.run(["./concat_fastas", test_fa_dir + "test1.fa", test_fa_dir + "test2.fa.gz", "-s", "A,B,C", "-o", test_results_dir + "check_mixed.fa"], stderr=subprocess.DEVNULL)
+        subprocess.run(["./concat_fastas", test_fa_dir + "test1.fa", test_fa_dir + "test2.fa.gz", "-s", "A,B,C", "-o", test_results_dir + test_out], stderr=subprocess.DEVNULL)
         # Compare the output with the target file
-        self.assertTrue(filecmp.cmp(test_results_dir +"check_mixed.fa", test_fa_dir + "target.fa"))
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "target.fa"))
 
     def test_mixed_seq_ordes(self):
+        test_out = "check_mixed_order.fa"
         # Run the script with plain text input files
-        subprocess.run(["./concat_fastas", test_fa_dir + "test1_sorted.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + "check_mixed_order.fa"], stderr=subprocess.DEVNULL)
+        subprocess.run(["./concat_fastas", test_fa_dir + "test1_sorted.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + test_out], stderr=subprocess.DEVNULL)
         # Compare the output with the target file
-        self.assertTrue(filecmp.cmp(test_results_dir + "check_mixed_order.fa", test_fa_dir + "target.fa"))
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "target.fa"))
 
     def test_split_text_input(self):
+        test_out = "check_split1.fa"
         # Run the script with plain text input files
-        subprocess.run(["./concat_fastas", test_fa_dir + "test1_split1.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + "check_split1.fa"], stderr=subprocess.DEVNULL)
+        subprocess.run(["./concat_fastas", test_fa_dir + "test1_split1.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + test_out], stderr=subprocess.DEVNULL)
         # Compare the output with the target file
-        self.assertTrue(filecmp.cmp(test_results_dir + "check_split1.fa", test_fa_dir + "target.fa"))
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "target.fa"))
 
     def test_split_text_input_fail(self):
+        test_out = "check_split2.fa"
         # Run the script with plain text input files
-        subprocess.run(["./concat_fastas", test_fa_dir + "test1_split2.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + "check_split2.fa"], stderr=subprocess.DEVNULL)
+        subprocess.run(["./concat_fastas", test_fa_dir + "test1_split2.fa", test_fa_dir + "test2.fa", "-s", "A,B,C", "-o", test_results_dir + test_out], stderr=subprocess.DEVNULL)
         # Compare the output with the target file
-        self.assertFalse(filecmp.cmp(test_results_dir + "check_split2.fa", test_fa_dir + "target.fa"))
+        self.assertFalse(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "target.fa"))
 
     def test_merge_split_ids(self):
         test_out = "check_merge.fa"
@@ -60,7 +73,6 @@ class TestConcatenateFastas(unittest.TestCase):
         subprocess.run(["./concat_fastas", test_fa_dir + "test1_split1.fa", "-s", "A,B,C,D,E", "-o", test_results_dir + test_out, "--keep-gaps-only"], stderr=subprocess.DEVNULL)
         # Compare the output with the target file
         self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "test1_sorted.fa"))
-
 
     def test_failure_gaps(self):
         # Run the script with an input that should fail

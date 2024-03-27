@@ -20,6 +20,15 @@ class TestConvertMafToFasta(unittest.TestCase):
         # Compare the output with the target file
         self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "test1_sorted.fa"))
 
+    def test_sample_order_from_file(self):
+        test_out = "convert_from_list.fa"
+        # read the sample order from file
+        command = ["./maf2fasta", "-m", test_maf_dir + "test1.maf", "-f", test_results_dir + test_out, "-l", "tests/samples.txt"]
+        # print(" ".join(command))
+        subprocess.run(command, stderr=subprocess.DEVNULL)
+        # Compare the output with the target file
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_fa_dir + "test1_ACB.fa"))
+
     def test_plain_gz_input(self):
         test_out = "convert_gz.fa"
         # Run the script with plain text input files
