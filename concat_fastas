@@ -72,9 +72,9 @@ def concatenate_fastas(fasta_files, sample_order, keep_gaps_only=False, base_rep
     if base_report:
         # Print summary of gaps and bases counts for each sample
         print("# Summary of gaps and bases counts for each sample:")
-        print("# sample\tgaps\tgaps%\tA\tC\tG\tT\tn")
+        print("# sample\tgaps\tgaps%\tA\tC\tG\tT\tN\tn")
         for sample, counts in sample_counts.items():
-            print(f"# {sample}\t{counts['-']}\t{round(counts['-']/sum(counts[base] for base in 'ACGT-')*100,1)}\t{counts['A']}\t{counts['C']}\t{counts['G']}\t{counts['T']}\t{sum(counts[base] for base in 'ACGT-')}")
+            print(f"# {sample}\t{counts['-']}\t{round(counts['-']/sum(counts[base] for base in 'ACNGT-')*100,1)}\t{counts['A']}\t{counts['C']}\t{counts['G']}\t{counts['T']}\t{counts['N']}\t{sum(counts[base] for base in 'ACGNT-')}")
 
     return seq_records
 

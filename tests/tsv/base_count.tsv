@@ -1,0 +1,6 @@
+# Summary of gaps and bases counts for each sample:
+# sample	gaps	gaps%	A	C	G	T	N	n
+# case_gap	2	25.0	2	2	0	2	0	8
+# case_case	0	0.0	3	1	1	2	1	8
+# case_n	0	0.0	1	2	0	2	3	8
+# case_na	3	37.5	0	0	0	0	5	8

@@ -14,6 +14,7 @@ COLOR_RESET = "\033[0m"
 
 if __name__ == "__main__":
     # Define test result directories
+    test_tsv_dir = "tests/tsv/"
     test_fa_dir = "tests/fa/"
     test_maf_dir = "tests/maf/"
     test_results_dir = "tests/results/"

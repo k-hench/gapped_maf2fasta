@@ -6,6 +6,7 @@ import shutil
 import re
 
 # Define test result directories
+test_tsv_dir = "tests/tsv/"
 test_fa_dir = "tests/fa/"
 test_maf_dir = "tests/maf/"
 test_results_dir = "tests/results/"
@@ -95,6 +96,15 @@ class TestConcatenateFastas(unittest.TestCase):
         # Check if the error message contains the expected error string
         expected_error = "Not all sequences are of the same length:"
         self.assertIn(expected_error, process.stderr.decode("utf-8"))
+
+    def test_base_count(self):
+        test_out = "check_base_count.tsv"
+        # Run the script with plain text input files
+        result = subprocess.run(["./concat_fastas", test_fa_dir + "base_counting.fa", "-s", "case_gap,case_case,case_n,case_na", "-o", "/dev/null", "--keep-gaps-only", "--base-report"], capture_output=True, text=True)
+        with open(test_results_dir + test_out, "w") as f:
+            f.write(result.stdout)
+        # Compare the output with the target file
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_tsv_dir + "base_count.tsv"))
 
 if __name__ == "__main__":
     
