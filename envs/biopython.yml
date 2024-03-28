@@ -7,3 +7,4 @@ channels:
 dependencies:
  - conda-forge::biopython=1.83
  - bioconda::pysam=0.22.0
+ - bioconda::pybedtools=0.9.1

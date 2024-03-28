@@ -171,3 +171,14 @@ conda run -n biopython \
   --keep-gaps-only \  # and
   --base-report       # just compile the base report
 ```
+
+## Intersect `maf` and `bed` file
+
+```sh
+conda run -n biopython \
+  ./intersect_maf_bed \
+  -m tests/maf/test3.maf \
+  -b tests/bed/A.bed \
+  -r A \
+  -o /dev/stdout
+```

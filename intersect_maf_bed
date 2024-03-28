@@ -1,0 +1,166 @@
+#!/usr/bin/env python
+import argparse
+import gzip
+import pandas as pd
+
+def parse_bed(bed_file):
+    regions = []
+    opener = gzip.open if bed_file.endswith('.gz') else open
+    with opener(bed_file, 'rt') as bed_handle:  # Open the file using the appropriate opener
+        for line in bed_handle:
+            fields = line.strip().split()
+            chrom = fields[0]
+            start = int(fields[1])
+            end = int(fields[2])
+            regions.append((chrom, start, end))
+    return regions
+
+def sort_and_merge_regions(regions):
+    sorted_regions = sorted(regions, key=lambda x: (x[0], x[1]))
+    merged_regions = []
+    current_chrom = None
+    current_start = None
+    current_end = None
+    for chrom, start, end in sorted_regions:
+        if current_chrom is None:
+            current_chrom = chrom
+            current_start = start
+            current_end = end
+        elif chrom == current_chrom and start <= current_end:
+            current_end = max(current_end, end)
+        else:
+            merged_regions.append((current_chrom, current_start, current_end))
+            current_chrom = chrom
+            current_start = start
+            current_end = end
+    if current_chrom is not None:
+        merged_regions.append((current_chrom, current_start, current_end))
+    return merged_regions
+
+def create_bed_dataframe(merged_regions):
+    df = pd.DataFrame(merged_regions, columns=['chrom', 'start', 'end'])
+    return df
+
+def parse_maf(maf_file):
+    blocks = []
+    with open(maf_file, 'r') as maf_handle:
+        lines = maf_handle.readlines()
+    current_block = []
+    for line in lines:
+        if line.startswith('a'):
+            if current_block:
+                blocks.append(current_block)
+            current_block = [line]
+        elif line.startswith('s'):
+            current_block.append(line)
+    if current_block:
+        blocks.append(current_block)
+
+    parsed_blocks = []
+    for block in blocks:
+        parsed_block = []
+        for line in block:
+            if line.startswith('s'):
+                fields = line.strip().split()
+                sample_seq_name = fields[1]
+                # Extracting sample name, sequence name, strand, and sequence
+                sample_name, seq_name = sample_seq_name.split('.', 1)
+                strand = fields[4]
+                sequence = fields[6]
+                parsed_block.append((sample_name, seq_name, int(fields[2]), int(fields[2]) + len(sequence), strand, fields[5], sequence))
+            else:
+                parsed_block.append(line)
+        parsed_blocks.append(parsed_block)
+    # print(parsed_blocks)
+    return parsed_blocks
+
+def pad_columns(df, columns, pad_side = "right"):
+    for column in columns:
+        max_width = df[column].astype(str).str.len().max()
+        df[column] = df[column].astype(str).str.pad(width=max_width, side=pad_side)
+
+def intersect_maf_block(maf_block, bed_df, ref_sample_name):
+    # Skip block header lines starting with 'a'
+    maf_block = [line for line in maf_block if not isinstance(line, str) or not line.startswith('a')]
+    
+    overlap_list = []
+    for line in maf_block:
+        if isinstance(line, str):  # Check if it's a block header line
+            continue  # Skip block header lines
+        else:
+            sample_name, seq_name, seq_start, seq_end, strand, src_size, sequence = line
+            if sample_name != ref_sample_name:
+                continue  # Skip lines not belonging to the reference sample
+            overlap = bed_df[(bed_df['chrom'] == seq_name) & (bed_df['start'] <= seq_end) & (bed_df['end'] >= seq_start)]
+            if not overlap.empty:
+                for index, row in overlap.iterrows():
+                    bed_start = row['start']
+                    bed_end = row['end']
+                    overlap_start = max(seq_start, bed_start)
+                    overlap_end = min(seq_end, bed_end)
+                    overlap_list.append((seq_name, bed_start, bed_end, seq_start, seq_end, overlap_start, overlap_end))
+                break  # Only check overlaps for the first sequence line of the reference sample
+    
+    overlap_df = pd.DataFrame(overlap_list, columns=['seq_name', 'bed_start', 'bed_end', 'seq_start', 'seq_end', 'overlap_start', 'overlap_end'])
+
+    # Update start coordinates based on overlap_start
+    updated_maf_block = []
+    for line in maf_block:
+        if isinstance(line, str):  # Check if it's a block header line
+            updated_maf_block.append(line)
+        else:
+            sample_name, seq_name, seq_start, seq_end, strand, src_size, sequence = line
+            updated_seq_start = overlap_df["overlap_start"].iloc[0]  
+            start_offset = updated_seq_start - overlap_df["seq_start"].iloc[0] 
+            end_offset = overlap_df["seq_end"].iloc[0] - overlap_df["overlap_end"].iloc[0]
+            updated_length = end_offset - start_offset
+            updated_sequence = sequence[start_offset:(start_offset+updated_length)]
+            new_seq_len = len(updated_sequence)
+            update_n_gaps = updated_sequence.count('-')
+            update_no_gaps = new_seq_len - update_n_gaps
+            updated_line = ["s", sample_name + "." + seq_name, updated_seq_start, update_no_gaps, strand, src_size, updated_sequence ]
+            updated_maf_block.append(updated_line)
+    
+
+    updated_maf_df = pd.DataFrame(updated_maf_block, columns=['s', 'src', 'start', 'size', 'strand', 'srcSize', 'text'])
+    # Pad columns 'src', 'start', 'size', and 'srcSize' with space characters
+    pad_columns(updated_maf_df, ['src'], "right")
+    pad_columns(updated_maf_df, ['start', 'size', 'srcSize'], "left")
+
+    # print(updated_maf_df)
+    return updated_maf_df, overlap_df
+
+def write_maf_block_to_file(maf_block_df, output_file):
+    with open(output_file, 'a') as out_maf:
+        out_maf.write("\na\n")
+        for _, row in maf_block_df.iterrows():
+            out_maf.write('{} {} {} {} {} {} {}\n'.format(row['s'], row['src'], row['start'], row['size'], row['strand'], row['srcSize'], row['text']))
+
+def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Intercept a maf file with a bed file")
+    parser.add_argument('-m', '--maf', dest="maf_file", required=True, help="Input MAF file")
+    parser.add_argument('-b', '--bed', dest="bed_file", required=True, help="Input bed file (can be gzipped)")
+    parser.add_argument('-r', '--ref', dest="ref_sample_name", required=True, help="name of reference sample in maf")
+    parser.add_argument('-o', '--output', dest="output_file", required=True, help="Output MAF file")
+   
+    args = parser.parse_args()
+
+    # Example usage
+    bed_file = args.bed_file
+    regions = parse_bed(bed_file)
+    merged_regions = sort_and_merge_regions(regions)
+    bed_df = create_bed_dataframe(merged_regions)
+    
+    # Parse MAF file and check for overlap
+    maf_file = args.maf_file
+    maf_blocks = parse_maf(maf_file)
+
+    with open(args.output_file, 'w') as out_maf:
+        out_maf.write("##maf version=1 program=intersect_maf_bed\n#")
+        for block in maf_blocks:
+            updated_maf_df, overlap_df = intersect_maf_block(block, bed_df, args.ref_sample_name)
+            write_maf_block_to_file(updated_maf_df, args.output_file)
+
+if __name__ == "__main__":
+    main()
