@@ -1,0 +1,21 @@
+##maf version=1 program=intersect_maf_bed
+
+a
+s A.Chromosome1  15 3 + 275 TAC
+s B.Chr2         18 3 + 175 TAC
+s C.chrA        135 0 + 375 ---
+
+a
+s A.Chromosome1  20 3 + 275 ACG
+s B.Chr2         23 3 + 175 ACG
+s C.chrA        140 3 + 375 ACG
+
+a
+s A.Chromosome1  30 5 + 275 GATTT
+s B.Chr2         33 5 + 175 GATTT
+s C.chrA        150 5 + 375 GATTT
+
+a
+s A.Chromosome1 110 15 +  275 GTACGTACGTACGTA
+s B.Chr2         56 15 +  175 CTACGTACGTACGTA
+s C.chrA        650  5 + 3375 ----------ACGTA

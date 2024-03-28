@@ -1,0 +1,6 @@
+##maf version=1 program=intersect_maf_bed
+
+a
+s A.Chromosome1 110 15 +  275 GTACGTACGTACGTA
+s B.Chr2         56 15 +  175 CTACGTACGTACGTA
+s C.chrA        650  5 + 3375 ----------ACGTA
