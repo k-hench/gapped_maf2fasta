@@ -55,7 +55,8 @@ def create_bed_dataframe(merged_regions):
 
 def parse_maf(maf_file):
     blocks = []
-    with open(maf_file, 'r') as maf_handle:
+    opener = gzip.open if maf_file.endswith('.gz') else open
+    with opener(maf_file, 'rt') as maf_handle:
         lines = maf_handle.readlines()
     current_block = []
     for line in lines:
