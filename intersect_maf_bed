@@ -1,7 +1,14 @@
 #!/usr/bin/env python
+import sys
 import argparse
 import gzip
 import pandas as pd
+
+# ANSI color escape codes
+COLOR_RED = "\033[91m"
+COLOR_ORANGE = "\033[93m"
+COLOR_PURPLE = "\033[95m"
+COLOR_RESET = "\033[0m"
 
 def parse_bed(bed_file):
     regions = []
@@ -11,6 +18,7 @@ def parse_bed(bed_file):
             fields = line.strip().split()
             chrom = fields[0]
             start = int(fields[1])
+            # bed files are zero-based - but so are maf files (UCSC)
             end = int(fields[2])
             regions.append((chrom, start, end))
     return regions
@@ -35,6 +43,10 @@ def sort_and_merge_regions(regions):
             current_end = end
     if current_chrom is not None:
         merged_regions.append((current_chrom, current_start, current_end))
+    
+    if len(regions) != len(merged_regions):
+        print(f"{COLOR_PURPLE}Info:{COLOR_RESET} Overlapping bed {COLOR_PURPLE}regions were merged{COLOR_RESET}:\nn input regions was {COLOR_PURPLE}{len(regions)}{COLOR_RESET}, after merging {COLOR_PURPLE}{len(merged_regions)}{COLOR_RESET} regions remain.", file=sys.stderr)
+
     return merged_regions
 
 def create_bed_dataframe(merged_regions):
@@ -90,8 +102,12 @@ def intersect_maf_block(maf_block, bed_df, ref_sample_name):
         else:
             sample_name, seq_name, seq_start, seq_end, strand, src_size, sequence = line
             if sample_name != ref_sample_name:
-                continue  # Skip lines not belonging to the reference sample
+                print(f"{COLOR_RED}Error:{COLOR_RESET} The maf file does not seem to use the {COLOR_ORANGE}expected sample{COLOR_RESET} (--ref {COLOR_ORANGE}{ref_sample_name}{COLOR_RESET}), but instead it uses sample {COLOR_RED}{sample_name}{COLOR_RESET} as reference.\nSee following first entry of maf block:", file=sys.stderr)
+                print(line, file=sys.stderr)
+                sys.exit(1)
+                #continue  # Skip lines not belonging to the reference sample
             overlap = bed_df[(bed_df['chrom'] == seq_name) & (bed_df['start'] <= seq_end) & (bed_df['end'] >= seq_start)]
+ #           print(overlap)
             if not overlap.empty:
                 for index, row in overlap.iterrows():
                     bed_start = row['start']
@@ -101,34 +117,38 @@ def intersect_maf_block(maf_block, bed_df, ref_sample_name):
                     overlap_list.append((seq_name, bed_start, bed_end, seq_start, seq_end, overlap_start, overlap_end))
                 break  # Only check overlaps for the first sequence line of the reference sample
     
-    overlap_df = pd.DataFrame(overlap_list, columns=['seq_name', 'bed_start', 'bed_end', 'seq_start', 'seq_end', 'overlap_start', 'overlap_end'])
-
-    # Update start coordinates based on overlap_start
-    updated_maf_block = []
-    for line in maf_block:
-        if isinstance(line, str):  # Check if it's a block header line
-            updated_maf_block.append(line)
-        else:
-            sample_name, seq_name, seq_start, seq_end, strand, src_size, sequence = line
-            updated_seq_start = overlap_df["overlap_start"].iloc[0]  
-            start_offset = updated_seq_start - overlap_df["seq_start"].iloc[0] 
-            end_offset = overlap_df["seq_end"].iloc[0] - overlap_df["overlap_end"].iloc[0]
-            updated_length = end_offset - start_offset
-            updated_sequence = sequence[start_offset:(start_offset+updated_length)]
-            new_seq_len = len(updated_sequence)
-            update_n_gaps = updated_sequence.count('-')
-            update_no_gaps = new_seq_len - update_n_gaps
-            updated_line = ["s", sample_name + "." + seq_name, updated_seq_start, update_no_gaps, strand, src_size, updated_sequence ]
-            updated_maf_block.append(updated_line)
+    updated_maf_block_list = []
+    for overlap_entry in overlap_list:
+        overlap_df = pd.DataFrame([overlap_entry], columns=['seq_name', 'bed_start', 'bed_end', 'seq_start', 'seq_end', 'overlap_start', 'overlap_end'])
+        # Update start coordinates based on overlap_start
+        updated_maf_block = []
+        for line in maf_block:
+            if isinstance(line, str):  # Check if it's a block header line
+                updated_maf_block.append(line)
+            else:
+                sample_name, seq_name, seq_start, seq_end, strand, src_size, sequence = line
+                updated_seq_start = overlap_df["overlap_start"].iloc[0]
+                # how much is does the sequence need to be clipped at the front 
+                start_offset = updated_seq_start - overlap_df["seq_start"].iloc[0] 
+                updated_length = overlap_df["overlap_end"].iloc[0] - overlap_df["overlap_start"].iloc[0]
+     #           updated_length = end_offset - start_offset
+                # print(f"{updated_seq_start}, {start_offset}, {updated_length}")
+                updated_sequence = sequence[start_offset:(start_offset+updated_length)]
+                new_seq_len = len(updated_sequence)
+                update_n_gaps = updated_sequence.count('-')
+                update_no_gaps = new_seq_len - update_n_gaps
+                updated_line = ["s", sample_name + "." + seq_name, updated_seq_start, update_no_gaps, strand, src_size, updated_sequence ]
+                updated_maf_block.append(updated_line)
+        
     
-
-    updated_maf_df = pd.DataFrame(updated_maf_block, columns=['s', 'src', 'start', 'size', 'strand', 'srcSize', 'text'])
-    # Pad columns 'src', 'start', 'size', and 'srcSize' with space characters
-    pad_columns(updated_maf_df, ['src'], "right")
-    pad_columns(updated_maf_df, ['start', 'size', 'srcSize'], "left")
+        updated_maf_df = pd.DataFrame(updated_maf_block, columns=['s', 'src', 'start', 'size', 'strand', 'srcSize', 'text'])
+        # Pad columns 'src', 'start', 'size', and 'srcSize' with space characters
+        pad_columns(updated_maf_df, ['src'], "right")
+        pad_columns(updated_maf_df, ['start', 'size', 'srcSize'], "left")
+        updated_maf_block_list.append(updated_maf_df)
 
     # print(updated_maf_df)
-    return updated_maf_df, overlap_df
+    return updated_maf_block_list, overlap_df
 
 def write_maf_block_to_file(maf_block_df, output_file):
     with open(output_file, 'a') as out_maf:
@@ -157,10 +177,11 @@ def main():
     maf_blocks = parse_maf(maf_file)
 
     with open(args.output_file, 'w') as out_maf:
-        out_maf.write("##maf version=1 program=intersect_maf_bed\n#")
+        out_maf.write("##maf version=1 program=intersect_maf_bed\n")
         for block in maf_blocks:
             updated_maf_df, overlap_df = intersect_maf_block(block, bed_df, args.ref_sample_name)
-            write_maf_block_to_file(updated_maf_df, args.output_file)
+            for new_maf_block in updated_maf_df:
+                write_maf_block_to_file(new_maf_block, args.output_file)
 
 if __name__ == "__main__":
     main()
