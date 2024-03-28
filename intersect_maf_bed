@@ -92,32 +92,49 @@ def pad_columns(df, columns, pad_side = "right"):
         max_width = df[column].astype(str).str.len().max()
         df[column] = df[column].astype(str).str.pad(width=max_width, side=pad_side)
 
+def find_overlaps(bed_df, seq_name, seq_start, seq_end, strand, src_size):
+    if strand == '+':
+        overlaps = bed_df[(bed_df['chrom'] == seq_name) & (bed_df['start'] <= seq_end) & (bed_df['end'] >= seq_start)]
+    elif strand == '-':
+        rev_bed_start = src_size - bed_df['end']
+        rev_bed_end = src_size - bed_df['start']
+        overlaps = bed_df[(bed_df['chrom'] == seq_name) & (rev_bed_start <= seq_end) & (rev_bed_end >= seq_start)]
+        overlaps.loc[:,"start"] = rev_bed_end
+        overlaps.loc[:,"end"] = rev_bed_start
+    else:
+        raise ValueError("Invalid strand information: must be '+' or '-'")
+    return overlaps
+
 def intersect_maf_block(maf_block, bed_df, ref_sample_name):
     # Skip block header lines starting with 'a'
     maf_block = [line for line in maf_block if not isinstance(line, str) or not line.startswith('a')]
-    
+
     overlap_list = []
+    first_line = True  # Flag to track the first line
     for line in maf_block:
-        if isinstance(line, str):  # Check if it's a block header line
-            continue  # Skip block header lines
-        else:
-            sample_name, seq_name, seq_start, seq_end, strand, src_size, sequence = line
-            if sample_name != ref_sample_name:
-                print(f"{COLOR_RED}Error:{COLOR_RESET} The maf file does not seem to use the {COLOR_ORANGE}expected sample{COLOR_RESET} (--ref {COLOR_ORANGE}{ref_sample_name}{COLOR_RESET}), but instead it uses sample {COLOR_RED}{sample_name}{COLOR_RESET} as reference.\nSee following first entry of maf block:", file=sys.stderr)
-                print(line, file=sys.stderr)
-                sys.exit(1)
-                #continue  # Skip lines not belonging to the reference sample
-            overlap = bed_df[(bed_df['chrom'] == seq_name) & (bed_df['start'] <= seq_end) & (bed_df['end'] >= seq_start)]
- #           print(overlap)
-            if not overlap.empty:
-                for index, row in overlap.iterrows():
-                    bed_start = row['start']
-                    bed_end = row['end']
-                    overlap_start = max(seq_start, bed_start)
-                    overlap_end = min(seq_end, bed_end)
-                    overlap_list.append((seq_name, bed_start, bed_end, seq_start, seq_end, overlap_start, overlap_end))
-                break  # Only check overlaps for the first sequence line of the reference sample
+        sample_name, seq_name, seq_start, seq_end, strand, src_size, sequence = line
+        if first_line and sample_name != ref_sample_name:  # Check if it's the first line and sample name mismatches
+            print(f"{COLOR_RED}Error:{COLOR_RESET} The maf file does not seem to use the {COLOR_ORANGE}expected sample{COLOR_RESET} (--ref {COLOR_ORANGE}{ref_sample_name}{COLOR_RESET}), but instead it uses sample {COLOR_RED}{sample_name}{COLOR_RESET} as reference.\nSee following first entry of maf block (note that the 4th value is the last alignment position, and NOT the `size` like in the maf itself):", file=sys.stderr)
+            print(line, file=sys.stderr)
+            sys.exit(1)
+        
+        first_line = False  # Set the flag to False after processing the first line
+        
+            #continue  # Skip lines not belonging to the reference sample
+        overlap = find_overlaps(bed_df, seq_name, seq_start, seq_end, strand, int(src_size))
+
+        if not overlap.empty:
+            for index, row in overlap.iterrows():
+                bed_start = row['start']
+                bed_end = row['end']
+                overlap_start = max(seq_start, bed_start)
+                overlap_end = min(seq_end, bed_end)
+                overlap_list.append((seq_name, bed_start, bed_end, seq_start, seq_end, overlap_start, overlap_end))
+            break  # Only check overlaps for the first sequence line of the reference sample
     
+    if not overlap_list:
+        return [], pd.DataFrame()  # Return empty lists if no overlaps are found
+
     updated_maf_block_list = []
     for overlap_entry in overlap_list:
         overlap_df = pd.DataFrame([overlap_entry], columns=['seq_name', 'bed_start', 'bed_end', 'seq_start', 'seq_end', 'overlap_start', 'overlap_end'])
@@ -128,16 +145,19 @@ def intersect_maf_block(maf_block, bed_df, ref_sample_name):
                 updated_maf_block.append(line)
             else:
                 sample_name, seq_name, seq_start, seq_end, strand, src_size, sequence = line
-                updated_seq_start = overlap_df["overlap_start"].iloc[0]
                 # how much is does the sequence need to be clipped at the front 
-                start_offset = updated_seq_start - overlap_df["seq_start"].iloc[0] 
+                start_offset = overlap_df["overlap_start"].iloc[0] - overlap_df["seq_start"].iloc[0] 
+                # how many characters of the clipped sequence need to be kept
                 updated_length = overlap_df["overlap_end"].iloc[0] - overlap_df["overlap_start"].iloc[0]
-     #           updated_length = end_offset - start_offset
-                # print(f"{updated_seq_start}, {start_offset}, {updated_length}")
+                # what is the starting position of the clipped sequence
+                updated_seq_start = seq_start + start_offset
+                # string operation to actually clip the sequence
                 updated_sequence = sequence[start_offset:(start_offset+updated_length)]
+                # calculate sequence size/ gap content
                 new_seq_len = len(updated_sequence)
                 update_n_gaps = updated_sequence.count('-')
                 update_no_gaps = new_seq_len - update_n_gaps
+                # collect output
                 updated_line = ["s", sample_name + "." + seq_name, updated_seq_start, update_no_gaps, strand, src_size, updated_sequence ]
                 updated_maf_block.append(updated_line)
         
@@ -179,10 +199,11 @@ def main():
 
     with open(args.output_file, 'w') as out_maf:
         out_maf.write("##maf version=1 program=intersect_maf_bed\n")
-        for block in maf_blocks:
-            updated_maf_df, overlap_df = intersect_maf_block(block, bed_df, args.ref_sample_name)
-            for new_maf_block in updated_maf_df:
-                write_maf_block_to_file(new_maf_block, args.output_file)
+    
+    for block in maf_blocks:
+        updated_maf_df, overlap_df = intersect_maf_block(block, bed_df, args.ref_sample_name)
+        for new_maf_block in updated_maf_df:
+            write_maf_block_to_file(new_maf_block, args.output_file)
 
 if __name__ == "__main__":
     main()
