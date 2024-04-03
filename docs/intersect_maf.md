@@ -1,5 +1,22 @@
 ## Intersect `maf` and `bed` file
 
+```
+usage: intersect_maf_bed [-h] -m MAF_FILE -b BED_FILE -r REF_SAMPLE_NAME -o OUTPUT_FILE
+
+Intercept a maf file with a bed file
+
+options:
+  -h, --help            show this help message and exit
+  -m MAF_FILE, --maf MAF_FILE
+                        Input MAF file
+  -b BED_FILE, --bed BED_FILE
+                        Input bed file (can be gzipped)
+  -r REF_SAMPLE_NAME, --ref REF_SAMPLE_NAME
+                        name of reference sample in maf
+  -o OUTPUT_FILE, --output OUTPUT_FILE
+                        Output MAF file
+```
+
 Note that this will parse the `bed` in such a way that overlaps of individual overlapping bed entries are being merged before the intersection with the `maf` file:
 
 ![](img/maf_intersection.svg)

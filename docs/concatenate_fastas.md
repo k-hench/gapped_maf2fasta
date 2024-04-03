@@ -1,5 +1,26 @@
 ### `fasta` concatenation
 
+```
+usage: concat_fastas [-h] (-s SAMPLE_ORDER | -l SAMPLE_FILE) -o OUTPUT_FILE [-kg] [-br] fasta_files [fasta_files ...]
+
+Concatenate sequences from multiple FASTA files
+
+positional arguments:
+  fasta_files           Input FASTA files (can be gzipped)
+
+options:
+  -h, --help            show this help message and exit
+  -s SAMPLE_ORDER, --sample-order SAMPLE_ORDER
+                        Sample order as a comma-separated list
+  -l SAMPLE_FILE, --sample-list SAMPLE_FILE
+                        File containing sample order (one sample per line)
+  -o OUTPUT_FILE, --output OUTPUT_FILE
+                        Output concatenated FASTA file
+  -kg, --keep-gaps-only
+                        Drop sequences with only gaps
+  -br, --base-report    Report a summary of the number of gaps and bases for each sample
+```
+
 Concatenate `fasta` files to single file.
 The input `fasta` files are specified as space-delimited list as first argument to the script `concat_fastas`:
 
