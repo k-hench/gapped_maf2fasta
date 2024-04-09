@@ -26,7 +26,14 @@ class TestIntersectMafBed(unittest.TestCase):
         subprocess.run(["./intersect_maf_bed", "-m", test_maf_dir + "test3.maf.gz", "-b", test_bed_dir + "A.bed.gz", "-r", "A", "-o", test_results_dir + test_out ], stderr=subprocess.DEVNULL)
         # Compare the output with the target file
         self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_maf_dir + "target_basic.maf"))
-    
+
+   # do not report length=0 maf blocks
+    def test_empty(self):
+        test_out = "check_empty.maf"
+        subprocess.run(["./intersect_maf_bed", "-m", test_maf_dir + "test1.maf", "-b", test_bed_dir + "A_edge.bed", "-r", "A", "-o", test_results_dir + test_out ], stderr=subprocess.DEVNULL)
+        # Compare the output with the target file
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_maf_dir + "target_empty.maf"))
+
    # include maf blocks without hits in bed
     def test_no_hits(self):
         test_out = "check_no_hits.maf"

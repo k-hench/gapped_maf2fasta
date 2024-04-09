@@ -94,7 +94,7 @@ def pad_columns(df, columns, pad_side = "right"):
 
 def find_overlaps(bed_df, seq_name, seq_start, seq_end, strand, src_size):
     if strand == '+':
-        overlaps = bed_df[(bed_df['chrom'] == seq_name) & (bed_df['start'] <= seq_end) & (bed_df['end'] >= seq_start)]
+        overlaps = bed_df[(bed_df['chrom'] == seq_name) & (bed_df['start'] < seq_end) & (bed_df['end'] >= seq_start)]
     elif strand == '-':
         rev_bed_start = src_size - bed_df['end']
         rev_bed_end = src_size - bed_df['start']
