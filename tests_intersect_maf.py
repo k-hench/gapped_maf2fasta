@@ -27,10 +27,31 @@ class TestIntersectMafBed(unittest.TestCase):
         # Compare the output with the target file
         self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_maf_dir + "target_basic.maf"))
 
-   # do not report length=0 maf blocks
+   # do not report length=0 maf blocks (leading edge)
     def test_empty(self):
         test_out = "check_empty.maf"
         subprocess.run(["./intersect_maf_bed", "-m", test_maf_dir + "test1.maf", "-b", test_bed_dir + "A_edge.bed", "-r", "A", "-o", test_results_dir + test_out ], stderr=subprocess.DEVNULL)
+        # Compare the output with the target file
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_maf_dir + "target_empty.maf"))
+
+   # do not report length=0 maf blocks (trailling edge)
+    def test_empty_2(self):
+        test_out = "check_empty2.maf"
+        subprocess.run(["./intersect_maf_bed", "-m", test_maf_dir + "test1.maf", "-b", test_bed_dir + "A_edge_trailling.bed", "-r", "A", "-o", test_results_dir + test_out ], stderr=subprocess.DEVNULL)
+        # Compare the output with the target file
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_maf_dir + "target_empty.maf"))
+
+   # test that minimum overlap filter works (1)
+    def test_min_overlap(self):
+        test_out = "check_min_overlap1.maf"
+        subprocess.run(["./intersect_maf_bed", "-m", test_maf_dir + "test3.maf", "-b", test_bed_dir + "multiple_hits.bed", "-r", "A", "-l", "4" , "-o", test_results_dir + test_out], stderr=subprocess.DEVNULL)
+        # Compare the output with the target file
+        self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_maf_dir + "target_min_length_4.maf"))
+
+   # test that minimum overlap filter works (2)
+    def test_min_overlap(self):
+        test_out = "check_min_overlap2.maf"
+        subprocess.run(["./intersect_maf_bed", "-m", test_maf_dir + "test3.maf", "-b", test_bed_dir + "multiple_hits.bed", "-r", "A", "-l", "16" , "-o", test_results_dir + test_out], stderr=subprocess.DEVNULL)
         # Compare the output with the target file
         self.assertTrue(filecmp.cmp(test_results_dir + test_out, test_maf_dir + "target_empty.maf"))
 

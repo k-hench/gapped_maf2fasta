@@ -85,7 +85,7 @@ def main():
     group.add_argument('-s', '--sample-order', dest="sample_order", help="Sample order as a comma-separated list")
     group.add_argument('-l', '--sample-list', dest="sample_file", help="File containing sample order (one sample per line)")
     parser.add_argument('fasta_files', nargs="+", help="Input FASTA files (can be gzipped)")
-    parser.add_argument('-o', '--output', dest="output_file", required=True, help="Output concatenated FASTA file")
+    parser.add_argument('-o', '--output', dest="output_file", default="/dev/stdout", help="Output concatenated FASTA file (default: stdout)")
     parser.add_argument('-kg', '--keep-gaps-only', dest="keep_gaps_only", action="store_true", help="Drop sequences with only gaps")
     parser.add_argument('-br', '--base-report', dest="base_report", action="store_true", help="Report a summary of the number of gaps and bases for each sample")
     args = parser.parse_args()
@@ -125,6 +125,9 @@ def main():
                 # Add newline character unless it's the last sequence
                 if i != len(concatenated_sequences) - 1:
                     handle.write("\n")
+        
+        if(args.output_file == "/dev/stdout"):
+            print("")
 
     except ValueError as e:
         print("Error:", e, file=sys.stderr)

@@ -94,18 +94,18 @@ def pad_columns(df, columns, pad_side = "right"):
 
 def find_overlaps(bed_df, seq_name, seq_start, seq_end, strand, src_size):
     if strand == '+':
-        overlaps = bed_df[(bed_df['chrom'] == seq_name) & (bed_df['start'] < seq_end) & (bed_df['end'] >= seq_start)]
+        overlaps = bed_df[(bed_df['chrom'] == seq_name) & (bed_df['start'] < seq_end) & (bed_df['end'] > seq_start)]
     elif strand == '-':
         rev_bed_start = src_size - bed_df['end']
         rev_bed_end = src_size - bed_df['start']
-        overlaps = bed_df[(bed_df['chrom'] == seq_name) & (rev_bed_start <= seq_end) & (rev_bed_end >= seq_start)]
+        overlaps = bed_df[(bed_df['chrom'] == seq_name) & (rev_bed_start < seq_end) & (rev_bed_end > seq_start)]
         overlaps.loc[:,"start"] = rev_bed_end
         overlaps.loc[:,"end"] = rev_bed_start
     else:
         raise ValueError("Invalid strand information: must be '+' or '-'")
     return overlaps
 
-def intersect_maf_block(maf_block, bed_df, ref_sample_name):
+def intersect_maf_block(maf_block, bed_df, ref_sample_name, min_overlap_length):
     # Skip block header lines starting with 'a'
     maf_block = [line for line in maf_block if not isinstance(line, str) or not line.startswith('a')]
 
@@ -126,7 +126,10 @@ def intersect_maf_block(maf_block, bed_df, ref_sample_name):
                     bed_end = row['end']
                     overlap_start = max(seq_start, bed_start)
                     overlap_end = min(seq_end, bed_end)
-                    overlap_list.append((seq_name, bed_start, bed_end, seq_start, seq_end, overlap_start, overlap_end))
+                    overlap_length = overlap_end-overlap_start
+                    # only append if the overlap is long enough
+                    if(overlap_length >= min_overlap_length):
+                      overlap_list.append((seq_name, bed_start, bed_end, seq_start, seq_end, overlap_start, overlap_end))
                 break  # Only check overlaps for the first sequence line of the reference sample
         
         if not overlap_list:
@@ -180,8 +183,9 @@ def main():
     parser.add_argument('-m', '--maf', dest="maf_file", required=True, help="Input MAF file")
     parser.add_argument('-b', '--bed', dest="bed_file", required=True, help="Input bed file (can be gzipped)")
     parser.add_argument('-r', '--ref', dest="ref_sample_name", required=True, help="name of reference sample in maf")
-    parser.add_argument('-o', '--output', dest="output_file", required=True, help="Output MAF file")
-   
+    parser.add_argument('-o', '--output', dest="output_file", default="/dev/stdout", help="Output MAF file (default: stdout)")
+    parser.add_argument('-l', '--min_overlap_length', default=1, dest="min_overlap", help="minimum overlap length in bp (default 1)")
+
     args = parser.parse_args()
 
     # Example usage
@@ -196,7 +200,7 @@ def main():
 
     new_maf_blocks = []
     for block in maf_blocks:
-        updated_maf_df, overlap_df = intersect_maf_block(block, bed_df, args.ref_sample_name)
+        updated_maf_df, overlap_df = intersect_maf_block(block, bed_df, args.ref_sample_name,int(args.min_overlap))
         new_maf_blocks.extend(updated_maf_df)
     
     with open(args.output_file, 'w') as out_maf:

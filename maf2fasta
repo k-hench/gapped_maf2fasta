@@ -45,7 +45,7 @@ def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Convert MAF alignment to multi-sample FASTA")
     parser.add_argument('-m', '--maf', dest="maf_file", required=True, help="Input MAF file (can be gzipped)")
-    parser.add_argument('-f', '--fa', dest="fasta_file", required=True, help="Output FASTA file")
+    parser.add_argument('-f', '--fa', dest="fasta_file", default="/dev/stdout", help="Output FASTA file (default: stdout)")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-s', '--sample-order', dest="sample_order", help="Sample order as a comma-separated list")
     group.add_argument('-l', '--sample-list', dest="sample_file", help="File containing sample order (one sample per line)")
@@ -74,6 +74,9 @@ def main():
                 handle.write(str(seq_record.seq))
                 if i < num_sequences - 1:
                     handle.write("\n")
+        if(args.fasta_file == "/dev/stdout"):
+            print("")
+                
     
     except Exception as e:
         raise e
