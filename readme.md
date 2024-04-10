@@ -1,21 +1,21 @@
 # Conversion of `maf` to `fasta` files
 
-The aim of these scripts is to able to merge the sequence alignments of a maf (Multiple Alignment Format) file in a consistent and predictable way.
+The aim of these scripts is to be able to merge the sequence alignments of a `maf` (Multiple Alignment Format) file in a consistent and predictable way.
 
 Required features are:
-- enforceable order of output sequences in the resulting fasta file (`maf2fasta`)
+- enforceable order of output sequences in the resulting `fasta` file (`maf2fasta`)
 - consistent padding with gaps for samples not included in an alignment block (`maf2fasta`)
-- checks for consistent length of the fasta output (`concat_fastas`)
+- checks for consistent length of the `fasta` output (`concat_fastas`)
 - checks for sequences consisting entirely of gaps (`concat_fastas`) 
 
 The desired output (potentially) concatenates at several places:
-- within each maf -> fasta conversion (all sequences with the same header are concatenated)
+- within each `maf` -> `fasta` conversion (all sequences with the same header are concatenated)
 - combining the results of multiple conversions (combining mafs from different scaffolds in the reference genome)
 
 
 ## Dependencies
 
-The python scripts require biopython (eg as specified in the conda environment in `envs/biopython.yml`)
+The python scripts require biopython (eg as specified in the `conda` environment in `envs/biopython.yml`)
 
 
 ## Intersect `maf` and `bed` file
@@ -32,8 +32,21 @@ The clipped alignment is then re-exported as `maf` file.
 ./intersect_maf_bed \
   -m tests/maf/test3.maf \
   -b tests/bed/A.bed \
-  -r A \
-  -o file_out.maf
+  -r A
+```
+
+```
+##maf version=1 program=intersect_maf_bed
+
+a
+s A.Chromosome1  15 30 + 275 TACGTACGTACGTACGATTTACGTAACGTT
+s B.Chr2         18 30 + 175 TACGTACGTACGTACGATTTACGTAACGTT
+s C.chrA        135 25 + 375 -----ACGTACGTAGGATTTATGTAACGTT
+
+a
+s A.Chromosome1 110 15 +  275 GTACGTACGTACGTA
+s B.Chr2         56 15 +  175 CTACGTACGTACGTA
+s C.chrA        650  5 + 3375 ----------ACGTA
 ```
 
 ## Convert `maf` file to multi-sample `fasta` file
@@ -43,11 +56,21 @@ The clipped alignment is then re-exported as `maf` file.
 ```sh
 ./maf2fasta \
   --maf tests/maf/test1.maf \
-  --fa file_out.fa \
   -s A,C,B,D
 ```
 
-Note that the order of the output `fasta` sequences it enforced with the `--sample-order` flag.
+```
+>A
+GTACGTACGTACGTACGTACGATTTACGTAACGTTACGTACGTACGTACGTACGT
+>C
+----------ACGTACGTAGGATTTATGTAACGTTACGTACGAC-----------
+>B
+CTACGTACGTACGTACGTACGATTTACGTAACGTTACGTACGTACGTACGTTCGT
+>D
+-------------------------------------------------------
+```
+
+Note that the order of the output `fasta` sequences is enforced with the `--sample-order` flag.
 Also, including a sample ID that is not included in the `maf` file will create an entirely blank sequence for that ID (only consisting of `-` characters).
 
 ![](docs/img/maf2fa_reorder.svg)
@@ -62,9 +85,20 @@ This should happen on a sample by sample basis:
 ```sh
 ./concat_fastas \
   tests/fa/test1.fa tests/fa/test2.fa \
-  -s A,C,B,Y \
-  -o /dev/stdout | \
-  fold -w 45 > concat_out.fa
+  -s A,C,B,Y | \
+  fold -w 45
+```
+
+```
+>A
+GTACGTACGTACGTACGTACGATTTACGTAACGTTACGTACGTAC
+GTACGTACGTATCAGTCAGCAGTGTAGCTGTGTGTGCATGCATGC
+>C
+----------ACGTACGTAGGATTTATGTAACGTTACGTACGAC-
+----------ATTAG-----AG---AGCTCTGA-----TGCAAGC
+>B
+CTACGTACGTACGTACGTACGATTTACGTAACGTTACGTACGTAC
+GTACGTTCGTATTATTTAGC--TGA----------GGATGCATGG
 ```
 
 ```
@@ -79,10 +113,15 @@ If there are multiple sequences with the same name within the `fasta` file they 
 ```sh
 ./concat_fastas \
   tests/fa/test1_split1.fa \
-  -s A \
-  -o /dev/stdout
+  -s A
 ```
 
+```
+Warning: The following sample(s) were dropped from the output: [ B, C, D, E ]
+(either because they are missing from --sample-order, or from the input fasta file(s))
+>A
+GTACGTACGTACGTACGTACGATTTACGTAACGTTACGTACGTACGTACGTACGT
+```
 
 The script can also be used to create a summary of the created `fasta` file (eg. to check the gap content per sequence).
 
