@@ -20,7 +20,7 @@ The python scripts require biopython (eg as specified in the `conda` environment
 
 ## Intersect `maf` and `bed` file
 
-The purpose of the `intersect_maf_bed` script is to clip a sequence alignment in `maf` format to regions specified within a bed file:
+The purpose of the `intersect_maf_bed` script is to clip a sequence alignment in `maf` format to regions specified within a `bed` file:
 
 ![](docs/img/maf_intersection.svg)
 
